@@ -90,11 +90,11 @@ class SpeKAN(nn.Module):
         super(SpeKAN, self).__init__()
         self.dim = dim
         self.scale = scale
-        self.avg_kan01 =  KANLinear(dim)
-        self.avg_kan02 = KANLinear(dim)
-        self.max_kan01 = KANLinear(dim)
-        self.max_kan02 =  KANLinear(dim)
-        self.sum_kan = KANLinear(dim)
+        self.avg_kan01 = KANLinear(dim, dim)  # 添加输出维度参数
+        self.avg_kan02 = KANLinear(dim, dim)  # 添加输出维度参数
+        self.max_kan01 = KANLinear(dim, dim)  # 添加输出维度参数
+        self.max_kan02 = KANLinear(dim, dim)  # 添加输出维度参数
+        self.sum_kan = KANLinear(dim * 2, dim)  # 注意这里输入维度是dim*2，因为拼接了两个特征
         
         
     def forward(self, x):

@@ -10,7 +10,7 @@ from data import NPZDataset
 import numpy as np
 from utils import Metric,get_model_size,beijing_time, set_logger
 import argparse
-from test import test
+# from test import test
 import time
 from models import KANSR
 import sys
