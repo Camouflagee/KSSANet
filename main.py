@@ -16,7 +16,7 @@ from models import KANSR
 import sys
 
 sys.path.append('./models/torch_conv_kan')
-
+#todo 24gb memeory of gpu is not enough edit the setting !
 parse = argparse.ArgumentParser()
 parse.add_argument('--model', type=str,default='KSSANet')
 parse.add_argument('--log_out', type=int,default=0)
@@ -24,24 +24,24 @@ parse.add_argument('--dataset', type=str,default='CAVE')
 parse.add_argument('--check_point', type=str,default=None)
 parse.add_argument('--check_step', type=int,default=50)
 parse.add_argument('--lr', type=float, default=1e-4)
-parse.add_argument('--batch_size', type=int, default=32)
+parse.add_argument('--batch_size', type=int, default=8)
 parse.add_argument('--epochs', type=int,default=40)
 parse.add_argument('--seed', type=int,default=3407) 
-parse.add_argument('--scale', type=int,default=4)
-parse.add_argument('--hidden_dim', type=int,default=128)
-parse.add_argument('--depth', type=int,default=8)
+parse.add_argument('--scale', type=int,default=2)
+parse.add_argument('--hidden_dim', type=int,default=64)
+parse.add_argument('--depth', type=int,default=4)
 parse.add_argument('--comments', type=str,default='')
 parse.add_argument('--grid_size', type=int,default=5)
 parse.add_argument('--spline_order', type=int,default=3)
 parse.add_argument('--wandb', type=int,default=1)
-parse.add_argument('--gpu', type=int,default=1)
+parse.add_argument('--gpu', type=int,default=3)
 args = parse.parse_args()
 
     
 if args.log_out == 0:
     os.environ['WANDB_MODE'] = 'offline'
     
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
 model_name = args.model
 model = None
 HSI_bands = None
@@ -109,9 +109,9 @@ def train():
         loss_list = []
         start_time = time.time()
         for idx,loader_data in enumerate(train_dataloader):
-            LRHSI,GT = loader_data[0].to(device),loader_data[1].to(device)
+            LRHSI, GT = loader_data[0].to(device),loader_data[1].to(device)
             pre_hsi = model(LRHSI)
-            loss = loss_func(GT,pre_hsi)
+            loss = loss_func(GT,pre_hsi) #todo bug: loss is none
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

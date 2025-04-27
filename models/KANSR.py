@@ -138,5 +138,6 @@ class KSSANet(nn.Module):
         for i in range(self.depth):
             feat = self.spatial_blocks[i](feat)
             feat = self.spectral_blocks[i](feat)
+        # assert torch.all(torch.isnan(feat))
         feat = self.tail(feat)
         return feat + up_hsi
