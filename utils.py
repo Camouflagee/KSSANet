@@ -123,7 +123,7 @@ def beijing_time():
         name='Asia/Shanghai',
     )
     beijing_now = utc_now.astimezone(SHA_TZ)
-    fmt = '%Y-%m-%d,%H:%M:%S'
+    fmt = '%Y-%m-%d_%H%M%S'
     now_fmt=beijing_now.strftime(fmt)
     return  now_fmt
 
