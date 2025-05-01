@@ -12,13 +12,13 @@ from data import NPZDataset
 import numpy as np
 from utils import Metric,get_model_size,beijing_time, set_logger
 import argparse
-# from test import test
+
 import time
 from models import KANSR
 import sys
 
 sys.path.append('./models/torch_conv_kan')
-#todo 24gb memeory of gpu is not enough edit the setting !
+
 parse = argparse.ArgumentParser()
 parse.add_argument('--model', type=str,default='KSSANet')
 parse.add_argument('--log_out', type=int,default=1)
@@ -26,12 +26,12 @@ parse.add_argument('--dataset', type=str,default='CAVE')
 parse.add_argument('--check_point', type=str,default=None)
 parse.add_argument('--check_step', type=int,default=50)
 parse.add_argument('--lr', type=float, default=1e-4)
-parse.add_argument('--batch_size', type=int, default=8) # 32
-parse.add_argument('--epochs', type=int,default=50)
+parse.add_argument('--batch_size', type=int, default=2) # 32 should be better but gpu memo not enough
+parse.add_argument('--epochs', type=int,default=40)
 parse.add_argument('--seed', type=int,default=3407) 
 parse.add_argument('--scale', type=int,default=2)
-parse.add_argument('--hidden_dim', type=int,default=64) # 128
-parse.add_argument('--depth', type=int,default=4) # 8
+parse.add_argument('--hidden_dim', type=int,default=128) # 128 should be better
+parse.add_argument('--depth', type=int,default=8) # 8 should be better
 parse.add_argument('--comments', type=str,default='')
 parse.add_argument('--grid_size', type=int,default=5)
 parse.add_argument('--spline_order', type=int,default=3)
@@ -212,10 +212,10 @@ def test(model, test_loader, device, logger, best_model_path):
 
     logger.info("--- 测试结果 ---")
     logger.info(f"平均 PSNR: {avg_psnr:.4f}")
-    logger.info(f"平均 RMSE: {avg_rmse:.4f}")
     logger.info(f"平均 SAM: {avg_sam:.4f}")
     logger.info(f"平均 ERGAS: {avg_ergas:.4f}")
     logger.info(f"平均 SSIM: {avg_ssim:.4f}")
+    logger.info(f"平均 RMSE: {avg_rmse:.4f}")
     logger.info("--- 测试结束 ---")
 
 
@@ -225,3 +225,5 @@ if best_model_path and exists(best_model_path):
 else:
     logger.error("没有可用的模型进行测试。")
 
+#todo 性能达不到论文所示情况
+# 1. metric计算方式不对 2. 数据集中多次随机试试?
