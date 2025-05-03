@@ -6,7 +6,7 @@ close all
 addpath('include');
 
 %% Step 1: generate the training and testing images from the original HSI
-load('D:\PythonProject\KSSANet\Hyperspec_Chikusei_ENVI\Hyperspec_Chikusei_MATLAB\Chikusei_MATLAB\HyperspecVNIR_Chikusei_20140729.mat');%% Please down the Chikusei dataset (mat format) from https://www.sal.t.u-tokyo.ac.jp/hyperdata/
+load('D:\PythonProject\KSSANet\Chikusei\Hyperspec_Chikusei_ENVI\Hyperspec_Chikusei_MATLAB\Chikusei_MATLAB\HyperspecVNIR_Chikusei_20140729.mat');%% Please down the Chikusei dataset (mat format) from https://www.sal.t.u-tokyo.ac.jp/hyperdata/
 %% center crop this image to size 2304 x 2048
 img = chikusei(107:2410,144:2191,:);
 clear chikusei;
