@@ -29,7 +29,7 @@ parse.add_argument('--lr', type=float, default=5e-5)
 parse.add_argument('--batch_size', type=int, default=2) # 32 should be better but gpu memo not enough
 parse.add_argument('--epochs', type=int,default=40)
 parse.add_argument('--seed', type=int,default=3407) 
-parse.add_argument('--scale', type=int,default=2)
+parse.add_argument('--scale', type=int,default=4)
 parse.add_argument('--hidden_dim', type=int,default=128) # 128 should be better
 parse.add_argument('--depth', type=int,default=8) # 8 should be better
 parse.add_argument('--comments', type=str,default='')
