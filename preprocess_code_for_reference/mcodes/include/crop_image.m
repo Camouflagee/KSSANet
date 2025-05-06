@@ -13,7 +13,7 @@ pat_col_num = 1:stride:(H - p + 1);
 pat_row_num = 1:stride:(W - p + 1);
 total_num = length(pat_col_num) * length(pat_row_num);
 index = 1;
-
+mkdir ('./dataset/Chikusei_x4/trains');
 % crop a single patch from whole image
 for i=1:length(pat_col_num)
     for j = 1:length(pat_row_num)

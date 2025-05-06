@@ -10,5 +10,5 @@ for i = 1:1:numel(file_names)
     name = file_names{i};
     name = name(1:end-4);
     load(strcat('./train/',file_names{i}));
-    crop_image(img, 64, 32, 0.25, name);
+    crop_image(img, 64, 32, 0.25, name); % 0.25 = scale 4
 end

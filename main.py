@@ -22,14 +22,14 @@ sys.path.append('./models/torch_conv_kan')
 parse = argparse.ArgumentParser()
 parse.add_argument('--model', type=str,default='KSSANet')
 parse.add_argument('--log_out', type=int,default=1)
-parse.add_argument('--dataset', type=str,default='CAVE')
+parse.add_argument('--dataset', type=str,default='Chikusei') #'CAVE' or 'Chikusei'
 parse.add_argument('--check_point', type=str,default=None)
 parse.add_argument('--check_step', type=int,default=50)
 parse.add_argument('--lr', type=float, default=5e-5)
 parse.add_argument('--batch_size', type=int, default=2) # 32 should be better but gpu memo not enough
 parse.add_argument('--epochs', type=int,default=40)
 parse.add_argument('--seed', type=int,default=3407) 
-parse.add_argument('--scale', type=int,default=8)
+parse.add_argument('--scale', type=int,default=2)
 parse.add_argument('--hidden_dim', type=int,default=128) # 128 should be better
 parse.add_argument('--depth', type=int,default=8) # 8 should be better
 parse.add_argument('--comments', type=str,default='')
