@@ -1,3 +1,5 @@
+import argparse
+import os
 from os.path import exists
 
 import torch
@@ -5,7 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors # 用于颜色映射和归一化
 
-from main import logger
+from data import NPZDataset
+
 from models import KANSR
 
 # 占位符：您需要导入您的KSSANet模型定义
@@ -18,80 +21,67 @@ from models import KANSR
 # 假设波段索引是0-based, 所以 29->28, 12->11, 4->3
 PSEUDO_COLOR_BANDS = [28, 11, 3] # R, G, B
 
-def load_model_and_data(model_path, data_path):
+def load_model_and_data(model_path, data_path, num_samples_to_load, args): # 参数名修改
     """
-    占位符函数：加载预训练的KSSANet模型和CAVE数据集中的一个样本。
-    您需要根据您的实际情况实现这个函数。
+    加载预训练的KSSANet模型和数据集中的前N个样本。
 
     Args:
         model_path (str): 模型权重文件的路径。
-        data_id (any): 用于指定加载哪个数据样本的标识符。
+        data_path (str): 数据集文件的路径。
+        num_samples_to_load (int): 需要加载的数据样本数量。
+        args (argparse.Namespace): 命令行参数。
 
     Returns:
         model (torch.nn.Module): 加载的KSSANet模型。
-        lr_hsi (torch.Tensor): 低分辨率高光谱图像样本 (作为模型输入)。
-        gt_hsi (torch.Tensor): 对应的地面真实高光谱图像样本。
+        lr_hsi_list (list of torch.Tensor): 低分辨率高光谱图像样本列表。
+        gt_hsi_list (list of torch.Tensor): 对应的地面真实高光谱图像样本列表。
     """
     print(f"正在加载模型从: {model_path}")
-    print(f"正在加载数据样本: {data_path}")
+    print(f"正在加载数据集: {data_path}")
+    print(f"目标加载样本数量: {num_samples_to_load}")
 
-    # --- 在此填充您的模型加载逻辑 ---
-    # model = KSSANet(...) # 初始化您的模型
-    # model.load_state_dict(torch.load(model_path))
-    # model.eval()
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # model.to(device)
-    # ---------------------------------
-    best_model_path = model_path
-    if not exists(best_model_path):
-        logger.error(f"最佳模型文件未找到: {best_model_path}")
-        print(f"Error: Best model file not found at {best_model_path}")
-        return
+    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
     if args.dataset == 'CAVE':
         HSI_bands = 31
-    else args.dataset == "Chikusei":
+    elif args.dataset == "Chikusei":
         HSI_bands = 128
+    else:
+        raise ValueError(f"不支持的数据集: {args.dataset}")
+        
     model = KANSR.KSSANet(hsi_bands=HSI_bands,
                             scale=args.scale,
                             depth=args.depth,
                             dim=args.hidden_dim)
-    logger.info(f"开始测试，加载模型: {best_model_path}")
-    checkpoint = torch.load(best_model_path, map_location=device) # 加载到指定设备
-    # 严格加载模型权重，如果模型结构完全匹配
-    # 如果只想加载权重而不关心其他参数（如优化器状态），可以只加载 'net'
-    try:
-        model.load_state_dict(checkpoint['net'])
-    except RuntimeError as e:
-         logger.warning(f"加载模型权重时出现不匹配 (可能由于模型结构更改): {e}")
-         # 尝试非严格加载
-         model.load_state_dict(checkpoint['net'], strict=False)
-         logger.warning("已尝试非严格加载模型权重。")
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint['net'])
+    model.to(device)
+    model.eval()
 
-
-    model.eval()  # 设置模型为评估模式 
-    test_dataset_path = data_path   
-    test_dataset = NPZDataset(test_dataset_path)
-    # 测试时 batch_size 可以设为 1 或其他值，shuffle 通常为 False
+    test_dataset = NPZDataset(data_path)
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
-    # --- 在此填充您的数据加载逻辑 ---
-    # 示例：lr_hsi, gt_hsi = load_cave_sample_for_visualization(data_id)
-    # lr_hsi = lr_hsi.unsqueeze(0).to(device) # 添加batch维度并移动到设备
-    # gt_hsi = gt_hsi.unsqueeze(0).to(device) # 添加batch维度并移动到设备
-    # 确保 lr_hsi 和 gt_hsi 是 (B, C, H, W) 或 (C, H, W) 格式的张量
-    # ---------------------------------
-    # 创建一些虚拟数据作为占位符 (C, H, W)
-    # CAVE 数据集通常有31个波段
-    for idx, loader_data in enumerate(test_dataloader):
-        LRHSI, GT = loader_data[0].to(device), loader_data[1].to(device)
-        lr_hsi_sample=LRHSI
-        gt_hsi_sample=GT
-        break    
 
+    lr_hsi_list = []
+    gt_hsi_list = []
     
-    lr_hsi = lr_hsi_sample
-    gt_hsi = gt_hsi_sample
+    if num_samples_to_load <= 0:
+        raise ValueError("要加载的样本数量必须大于0")
+    if num_samples_to_load > len(test_dataset):
+        print(f"警告: 请求加载的样本数量 ({num_samples_to_load}) 大于数据集中的总样本数 ({len(test_dataset)}). 将加载所有可用样本。")
+        num_samples_to_load = len(test_dataset)
+
+    for idx, loader_data in enumerate(test_dataloader):
+        if idx < num_samples_to_load:
+            LRHSI, GT = loader_data[0].to(device), loader_data[1].to(device)
+            lr_hsi_list.append(LRHSI)
+            gt_hsi_list.append(GT)
+        else:
+            break # 已收集足够数量的样本
     
-    return model, lr_hsi, gt_hsi
+    if len(lr_hsi_list) != num_samples_to_load:
+         # 这种情况可能在dataloader提前结束时发生，尽管上面有长度检查
+         print(f"警告: 实际加载的样本数量 ({len(lr_hsi_list)}) 与请求的数量 ({num_samples_to_load}) 不符。")
+
+    return model, lr_hsi_list, gt_hsi_list
 
 
 def get_pseudo_color_image(hsi_tensor, bands):
@@ -145,66 +135,91 @@ def get_mse_heatmap(pred_hsi, gt_hsi):
 
 
 if __name__ == "__main__":
-    # --- 配置 ---
-    MODEL_PATH = "path/to/your/kssanet_model_weights.pth"  # 修改为您的模型权重路径
-    DATA_SAMPLE_ID = "cave_sample_01"  # 修改为您想可视化的数据样本标识
+    MODEL_PATH = "/data1/lijiansheng/KSSANet/trained_models/2025-05-03_141052_KSSANet_scale8_dataset_CAVE/model_epoch_40.pth"
+    dataset_path = "./datasets/CAVE_test_x8.npz"
+    num_samples_to_visualize = 3 # 修改为一个整数，代表要处理的样本数量
+    
+    parse = argparse.ArgumentParser()
+    parse.add_argument('--dataset', type=str, default='CAVE')
+    parse.add_argument('--scale', type=int, default=8)
+    parse.add_argument('--hidden_dim', type=int, default=128)
+    parse.add_argument('--depth', type=int, default=8)
+    parse.add_argument('--gpu', type=int, default=6)
+    args = parse.parse_args()
 
-    try:
-        # 1. 加载模型和数据样本
-        # 注意：您需要实现 load_model_and_data 函数
-        kssanet_model, lr_hsi_sample, gt_hsi_sample = load_model_and_data(MODEL_PATH, DATA_SAMPLE_ID)
-        
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        kssanet_model.to(device)
-        lr_hsi_sample = lr_hsi_sample.to(device)
-        # gt_hsi_sample 不需要移动到device，因为MSE计算和伪彩图生成在CPU上用numpy
+    device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
+
+    # 1. 一次性加载所有模型和数据样本
+    print("开始加载模型和所有请求的数据...")
+    kssanet_model, all_lr_hsi_samples, all_gt_hsi_samples = load_model_and_data(
+        MODEL_PATH, dataset_path, num_samples_to_visualize, args
+    )
+    print("模型和数据加载完毕。")
+
+    # 遍历预加载的数据
+    # current_sample_idx 将是 0-based 索引
+    for current_sample_idx, (lr_hsi_sample, gt_hsi_sample) in enumerate(zip(all_lr_hsi_samples, all_gt_hsi_samples)):
+        print(f"\n正在处理预加载的样本索引: {current_sample_idx}")
+
+        # lr_hsi_sample 和 gt_hsi_sample 已经是在device上的单个样本 (B=1, C, H, W)
+        # 模型也已在device上并处于eval模式
 
         # 2. 模型推理
-        kssanet_model.eval()
+        # kssanet_model.eval() # 模型已在load_model_and_data中设为eval
         with torch.no_grad():
-            pred_hsi_sr = kssanet_model(lr_hsi_sample) # SR: Super-Resolved
+            pred_hsi_sr = kssanet_model(lr_hsi_sample)
 
         # 移除batch维度 (如果存在) 并移动到CPU
-        # 假设输出是 (1, C, H, W)
-        if pred_hsi_sr.ndim == 4 and pred_hsi_sr.shape[0] == 1:
-            pred_hsi_sr = pred_hsi_sr.squeeze(0) 
-        if gt_hsi_sample.ndim == 4 and gt_hsi_sample.shape[0] == 1:
-            gt_hsi_sample = gt_hsi_sample.squeeze(0)
-            
-        pred_hsi_sr_cpu = pred_hsi_sr.cpu()
-        gt_hsi_cpu = gt_hsi_sample.cpu()
+        # 输入的 lr_hsi_sample, gt_hsi_sample, 和输出的 pred_hsi_sr 都是 (1, C, H, W)
+        pred_hsi_sr_squeezed = pred_hsi_sr.squeeze(0)
+        gt_hsi_sample_squeezed = gt_hsi_sample.squeeze(0)
+        lr_hsi_sample_squeezed = lr_hsi_sample.squeeze(0)
 
+        pred_hsi_sr_cpu = pred_hsi_sr_squeezed.cpu()
+        gt_hsi_cpu = gt_hsi_sample_squeezed.cpu()
+        lr_hsi_cpu = lr_hsi_sample_squeezed.cpu()
 
-        # 3. 生成KSSANet的伪彩色预测图像
+        # 3. 生成伪彩色图像
+        lr_pseudo_color = get_pseudo_color_image(lr_hsi_cpu, PSEUDO_COLOR_BANDS)
         kssanet_pseudo_color = get_pseudo_color_image(pred_hsi_sr_cpu, PSEUDO_COLOR_BANDS)
+        gt_pseudo_color = get_pseudo_color_image(gt_hsi_cpu, PSEUDO_COLOR_BANDS)
 
         # 4. 计算KSSANet预测与GT之间的MSE热力图
         mse_heatmap = get_mse_heatmap(pred_hsi_sr_cpu, gt_hsi_cpu)
 
         # 5. 可视化结果
-        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        fig, axes = plt.subplots(1, 4, figsize=(24, 6))
 
-        # 显示KSSANet的伪彩色输出
-        axes[0].imshow(kssanet_pseudo_color)
-        axes[0].set_title("KSSANet Output (Pseudo-color)")
+        axes[0].imshow(lr_pseudo_color)
+        axes[0].set_title(f"LR HSI Input (Sample Index {current_sample_idx})", fontsize=10)
         axes[0].axis('off')
 
-        # 显示MSE热力图
-        # 使用与图中相似的颜色范围 [0, 0.020]
-        norm = mcolors.Normalize(vmin=0.0, vmax=0.020)
-        im = axes[1].imshow(mse_heatmap, cmap='viridis', norm=norm) # 'viridis' 是一个常用的感知均匀色图
-        axes[1].set_title("MSE Heatmap (KSSANet vs GT)")
+        axes[1].imshow(kssanet_pseudo_color)
+        axes[1].set_title(f"KSSANet Output (Sample Index {current_sample_idx})", fontsize=10)
         axes[1].axis('off')
 
-        # 添加颜色条
-        fig.colorbar(im, ax=axes[1], orientation='vertical', fraction=0.046, pad=0.04)
+        axes[2].imshow(gt_pseudo_color)
+        axes[2].set_title(f"Ground Truth (Sample Index {current_sample_idx})", fontsize=10)
+        axes[2].axis('off')
 
-        plt.tight_layout()
+        norm = mcolors.Normalize(vmin=0.0, vmax=0.020)
+        im = axes[3].imshow(mse_heatmap, cmap='viridis', norm=norm)
+        axes[3].set_title(f"MSE Heatmap (Sample Index {current_sample_idx})", fontsize=10)
+        axes[3].axis('off')
+
+        fig.colorbar(im, ax=axes[3], orientation='vertical', fraction=0.046, pad=0.04)
+        # plt.tight_layout()
+        fig.tight_layout(rect=[0, 0.05, 1, 0.93])
+        # 6. 保存图像
+        base_save_dir = "fig_res"
+        dataset_save_dir = os.path.join(base_save_dir, args.dataset)
+        os.makedirs(dataset_save_dir, exist_ok=True)
+
+        fig_filename = f"sample_idx_{current_sample_idx}_scale_x{args.scale}.png" # 文件名使用索引
+        full_save_path = os.path.join(dataset_save_dir, fig_filename)
+
+        plt.savefig(full_save_path)
+        print(f"图像已保存到: {full_save_path}")
+        
         plt.show()
 
-    except NotImplementedError as e:
-        print(f"错误: {e}")
-        print("请确保您已在 'main.py' 中正确实现 'load_model_and_data' 函数，")
-        print("并提供了正确的模型路径和数据加载逻辑。")
-    except Exception as e:
-        print(f"运行中发生错误: {e}")

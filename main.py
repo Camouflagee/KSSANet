@@ -119,7 +119,7 @@ def train():
         for idx,loader_data in enumerate(train_dataloader):
             LRHSI, GT = loader_data[0].to(device),loader_data[1].to(device)
             pre_hsi = model(LRHSI)
-            loss = loss_func(GT,pre_hsi) #todo bug: loss is none
+            loss = loss_func(GT,pre_hsi)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
