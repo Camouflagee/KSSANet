@@ -11,12 +11,6 @@ from data import NPZDataset
 
 from models import KANSR
 
-# 占位符：您需要导入您的KSSANet模型定义
-# from models.kssanet import KSSANet # 假设您的模型在 models/kssanet.py 中
-
-# 占位符：您可能需要从您的数据加载器中导入函数
-# from data_loader import load_cave_sample_for_visualization # 示例函数名
-
 # 定义用于生成伪彩色图像的波段 (R-29, G-12, B-4)
 # 假设波段索引是0-based, 所以 29->28, 12->11, 4->3
 PSEUDO_COLOR_BANDS = [28, 11, 3] # R, G, B
@@ -132,24 +126,87 @@ def get_mse_heatmap(pred_hsi, gt_hsi):
     squared_error = (pred_hsi - gt_hsi)**2
     mse_map = np.mean(squared_error, axis=0) # 沿波段维度求平均
     return mse_map
+def parse_model_path(model_path_str):
+    dataset_name = None
+    scale_value = None
+    try:
+        # 提取文件名部分
+        filename_part = model_path_str.split('/')[-2] # 获取 "2025-05-01_202609_KSSANet_scale2_dataset_CAVE"
 
+        # 提取 dataset name
+        if "_dataset_" in filename_part:
+            dataset_name = filename_part.split("_dataset_")[-1]
+
+        # 提取 scale value
+        if "_scale" in filename_part:
+            # 找到 "_scale" 的位置
+            scale_marker_index = filename_part.find("_scale")
+            # 从 "_scale" 之后开始查找，直到下一个 "_"
+            substring_after_scale = filename_part[scale_marker_index + len("_scale"):]
+            if "_" in substring_after_scale:
+                scale_str = substring_after_scale.split("_")[0]
+            else: # 如果scale是最后一部分，例如 "_scale2"
+                scale_str = substring_after_scale
+
+            if scale_str.isdigit():
+                scale_value = int(scale_str)
+            else:
+                print(f"警告: 提取到的scale值 '{scale_str}' 不是一个纯数字。")
+
+
+    except IndexError:
+        print(f"错误: 无法从字符串 '{model_path_str}' 中按预期格式解析。")
+    except Exception as e:
+        print(f"解析时发生错误: {e}")
+
+    return dataset_name, scale_value
 
 if __name__ == "__main__":
-    MODEL_PATH = "/data1/lijiansheng/KSSANet/trained_models/2025-05-03_141052_KSSANet_scale8_dataset_CAVE/model_epoch_40.pth"
-    dataset_path = "./datasets/CAVE_test_x8.npz"
-    num_samples_to_visualize = 3 # 修改为一个整数，代表要处理的样本数量
-    
     parse = argparse.ArgumentParser()
-    parse.add_argument('--dataset', type=str, default='CAVE')
-    parse.add_argument('--scale', type=int, default=8)
+    num_samples_to_visualize = 3 # 修改为一个整数，代表要处理的样本数量
+    # CAVE scale 2 4 8
+    # MODEL_PATH ="/data1/lijiansheng/KSSANet/trained_models/2025-05-01_202609_KSSANet_scale2_dataset_CAVE/model_best.pth"
+    # MODEL_PATH ="/data1/lijiansheng/KSSANet/trained_models/2025-05-03_134856_KSSANet_scale4_dataset_CAVE/model_best.pth"
+    # MODEL_PATH ="/data1/lijiansheng/KSSANet/trained_models/2025-05-03_141052_KSSANet_scale8_dataset_CAVE/model_best.pth"
+    # Chikusei scale 2 4 8
+    MODEL_PATH = "/data1/lijiansheng/KSSANet/trained_models/2025-05-04_132657_KSSANet_scale2_dataset_Chikusei/model_best.pth"
+    # MODEL_PATH = "/data1/lijiansheng/KSSANet/trained_models/2025-05-06_220159_KSSANet_scale4_dataset_Chikusei/model_best.pth"
+    # MODEL_PATH= "/data1/lijiansheng/KSSANet/trained_models/2025-05-07_170008_KSSANet_scale8_dataset_Chikusei/model_best.pth"
+
+
     parse.add_argument('--hidden_dim', type=int, default=128)
     parse.add_argument('--depth', type=int, default=8)
     parse.add_argument('--gpu', type=int, default=6)
     args = parse.parse_args()
-
+    
+    args.dataset, args.scale = parse_model_path(MODEL_PATH)
+    print("dataset: ",args.dataset, "scale: ",args.scale)
     device = torch.device(f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
+    if args.dataset == 'CAVE':
+        HSI_bands = 31
+        if args.scale == 2:
+            train_dataset_path = './datasets/CAVE_train_x2.npz'
+            test_dataset_path = './datasets/CAVE_test_x2.npz'  # 添加测试集路径
+        if args.scale == 4:
+            train_dataset_path = './datasets/CAVE_train_x4.npz'
+            test_dataset_path = './datasets/CAVE_test_x4.npz'  # 添加测试集路径
+        if args.scale == 8:
+            train_dataset_path = './datasets/CAVE_train_x8.npz'
+            test_dataset_path = './datasets/CAVE_test_x8.npz'  # 添加测试集路径
 
-    # 1. 一次性加载所有模型和数据样本
+    elif args.dataset == "Chikusei":
+        HSI_bands = 128
+        if args.scale == 2:
+            train_dataset_path = './datasets/Chikusei_train_x2.npz'
+            test_dataset_path = './datasets/Chikusei_test_x2.npz'  # 添加测试集路径
+        if args.scale == 4:
+            train_dataset_path = './datasets/Chikusei_train_x4.npz'
+            test_dataset_path = './datasets/Chikusei_test_x4.npz'  # 添加测试集路径
+        if args.scale == 8:
+            train_dataset_path = './datasets/Chikusei_train_x8.npz'
+            test_dataset_path = './datasets/Chikusei_test_x8.npz'
+    dataset_path=test_dataset_path
+            # 1. 一次性加载所有模型和数据样本
     print("开始加载模型和所有请求的数据...")
     kssanet_model, all_lr_hsi_samples, all_gt_hsi_samples = load_model_and_data(
         MODEL_PATH, dataset_path, num_samples_to_visualize, args
@@ -191,31 +248,31 @@ if __name__ == "__main__":
         fig, axes = plt.subplots(1, 4, figsize=(24, 6))
 
         axes[0].imshow(lr_pseudo_color)
-        axes[0].set_title(f"LR HSI Input (Sample Index {current_sample_idx})", fontsize=10)
+        axes[0].set_title(f"LR HSI Input (Sample Index {current_sample_idx})", fontsize=20)
         axes[0].axis('off')
 
         axes[1].imshow(kssanet_pseudo_color)
-        axes[1].set_title(f"KSSANet Output (Sample Index {current_sample_idx})", fontsize=10)
+        axes[1].set_title(f"KSSANet Output (Sample Index {current_sample_idx})", fontsize=20)
         axes[1].axis('off')
 
         axes[2].imshow(gt_pseudo_color)
-        axes[2].set_title(f"Ground Truth (Sample Index {current_sample_idx})", fontsize=10)
+        axes[2].set_title(f"Ground Truth (Sample Index {current_sample_idx})", fontsize=20)
         axes[2].axis('off')
 
         norm = mcolors.Normalize(vmin=0.0, vmax=0.020)
         im = axes[3].imshow(mse_heatmap, cmap='viridis', norm=norm)
-        axes[3].set_title(f"MSE Heatmap (Sample Index {current_sample_idx})", fontsize=10)
+        axes[3].set_title(f"MSE Heatmap (Sample Index {current_sample_idx})", fontsize=20)
         axes[3].axis('off')
 
         fig.colorbar(im, ax=axes[3], orientation='vertical', fraction=0.046, pad=0.04)
         # plt.tight_layout()
-        fig.tight_layout(rect=[0, 0.05, 1, 0.93])
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
         # 6. 保存图像
         base_save_dir = "fig_res"
         dataset_save_dir = os.path.join(base_save_dir, args.dataset)
         os.makedirs(dataset_save_dir, exist_ok=True)
 
-        fig_filename = f"sample_idx_{current_sample_idx}_scale_x{args.scale}.png" # 文件名使用索引
+        fig_filename = f"scale_x{args.scale}_sample_idx_{current_sample_idx}.png" # 文件名使用索引
         full_save_path = os.path.join(dataset_save_dir, fig_filename)
 
         plt.savefig(full_save_path)
